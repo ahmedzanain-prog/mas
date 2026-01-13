@@ -1,37 +1,43 @@
-// Import Express.js
 const express = require('express');
-
-// Create an Express app
 const app = express();
 
-// Middleware to parse JSON bodies
+// استخدام Middleware لمعالجة بيانات JSON الواردة من واتساب
 app.use(express.json());
 
-// Set port and verify_token
-const port = process.env.PORT || 3000;
-const verifyToken = process.env.VERIFY_TOKEN;
+// --- إعدادات التحقق ---
+// اختر أي كلمة سر تريدها واكتبها هنا، واستخدم نفس الكلمة في خانة "تحقق من الرمز" في فيسبوك
+const VERIFY_TOKEN = "ahmed123"; 
 
-// Route for GET requests
-app.get('/', (req, res) => {
-  const { 'hub.mode': mode, 'hub.challenge': challenge, 'hub.verify_token': token } = req.query;
+// 1. رابط التحقق (GET): يستخدمه واتساب للتأكد من أن السيرفر خاص بك
+app.get('/webhook', (req, res) => {
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
 
-  if (mode === 'subscribe' && token === verifyToken) {
-    console.log('WEBHOOK VERIFIED');
-    res.status(200).send(challenge);
-  } else {
-    res.status(403).end();
-  }
+    // التحقق من أن الطلب قادم من واتساب وبواسطة الرمز الصحيح
+    if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+        console.log('✅ WEBHOOK_VERIFIED');
+        res.status(200).send(challenge);
+    } else {
+        console.log('❌ Verification failed. Token mismatch.');
+        res.sendStatus(403);
+    }
 });
 
-// Route for POST requests
-app.post('/', (req, res) => {
-  const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
-  console.log(`\n\nWebhook received ${timestamp}\n`);
-  console.log(JSON.stringify(req.body, null, 2));
-  res.status(200).end();
+// 2. رابط استقبال الرسائل (POST): حيث تصل رسائل المستخدمين وتحديثات الحالة
+app.post('/webhook', (req, res) => {
+    const body = req.body;
+
+    // طباعة البيانات المستلمة في سجلات Render لمراقبتها
+    console.log('📩 New Webhook Received:');
+    console.log(JSON.stringify(body, null, 2));
+
+    // واتساب يتطلب الرد دائماً بحالة 200 لتأكيد الاستلام
+    res.status(200).send('EVENT_RECEIVED');
 });
 
-// Start the server
-app.listen(port, () => {
-  console.log(`\nListening on port ${port}\n`);
+// إعداد المنفذ (Port) الخاص بـ Render
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => {
+    console.log(`🚀 Server is listening on port ${PORT}`);
 });
